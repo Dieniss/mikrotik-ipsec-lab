@@ -106,15 +106,23 @@ RouterOS ships with no addresses and no DHCP client. Everything here is static.
 /ip address add address=192.168.20.1/24 interface=ether2
 ```
 
-| MikroTik-1 | MikroTik-2 |
-|---|---|
-| ![MK1 IPs](Screenshots/01_mikrotik1_assign_ips.jpg) | ![MK2 IPs](Screenshots/02_mikrotik2_assign_ips.jpg) |
+**MikroTik-1**
+
+![MK1 IPs](Screenshots/01_mikrotik1_assign_ips.jpg)
+
+**MikroTik-2**
+
+![MK2 IPs](Screenshots/02_mikrotik2_assign_ips.jpg)
 
 WAN reachability between the two routers — the first checkpoint:
 
-| MK1 → MK2 | MK2 → MK1 |
-|---|---|
-| ![MK1 ping](Screenshots/03_mikrotik1_ping_wan.jpg) | ![MK2 ping](Screenshots/04_mikrotik2_ping_wan.jpg) |
+**MikroTik-1 → MikroTik-2**
+
+![MK1 ping](Screenshots/03_mikrotik1_ping_wan.jpg)
+
+**MikroTik-2 → MikroTik-1**
+
+![MK2 ping](Screenshots/04_mikrotik2_ping_wan.jpg)
 
 Windows clients, statically addressed with their local router as gateway:
 
@@ -150,9 +158,13 @@ The classic port-forward: expose a service on the WAN edge and translate it to a
     comment="DNAT RDP to Windows-2"
 ```
 
-| MikroTik-1 NAT | MikroTik-2 NAT |
-|---|---|
-| ![MK1 NAT](Screenshots/10_mikrotik1_nat_masquerade.jpg) | ![MK2 NAT](Screenshots/11_mikrotik2_nat_dnat_rdp.jpg) |
+**MikroTik-1 — masquerade only**
+
+![MK1 NAT](Screenshots/10_mikrotik1_nat_masquerade.jpg)
+
+**MikroTik-2 — masquerade + DNAT for RDP**
+
+![MK2 NAT](Screenshots/11_mikrotik2_nat_dnat_rdp.jpg)
 
 Filter rules at this stage were minimal — established/related plus anything that had been through DNAT:
 
@@ -160,9 +172,9 @@ Filter rules at this stage were minimal — established/related plus anything th
 
 Windows-1 connects to `10.0.0.2` — the router's WAN address, not the target host:
 
-| | |
-|---|---|
-| ![RDP prompt](Screenshots/13_rdp_login_prompt_via_wan.jpg) | ![RDP session](Screenshots/14_rdp_session_via_wan.jpg) |
+![RDP prompt](Screenshots/13_rdp_login_prompt_via_wan.jpg)
+
+![RDP session](Screenshots/14_rdp_session_via_wan.jpg)
 
 Working — and that is exactly the problem. The DNAT rule matches on interface and port only, with no source restriction. Anything able to reach `ether1` gets a free shot at RDP on the internal host. On a real WAN that means continuous credential stuffing and exposure to protocol-level bugs (BlueKeep being the obvious example). It works, and it should not be used.
 
@@ -192,13 +204,45 @@ Working — and that is exactly the problem. The DNAT rule matches on interface 
     peer=peer-to-mk1 proposal=proposal1 tunnel=yes
 ```
 
-| MikroTik-1 | MikroTik-2 |
-|---|---|
-| ![MK1 proposal](Screenshots/15_mikrotik1_ipsec_proposal.jpg) | ![MK2 profile](Screenshots/20_mikrotik2_ipsec_profile.jpg) |
-| ![MK1 profile](Screenshots/16_mikrotik1_ipsec_profile.jpg) | ![MK2 peer](Screenshots/21_mikrotik2_ipsec_peer.jpg) |
-| ![MK1 peer](Screenshots/17_mikrotik1_ipsec_peer.jpg) | ![MK2 identity](Screenshots/22_mikrotik2_ipsec_identity.jpg) |
-| ![MK1 identity](Screenshots/18_mikrotik1_ipsec_identity.jpg) | ![MK2 policy](Screenshots/23_mikrotik2_ipsec_policy.jpg) |
-| ![MK1 policy](Screenshots/19_mikrotik1_ipsec_policy.jpg) | |
+#### MikroTik-1
+
+**Proposal**
+
+![MK1 proposal](Screenshots/15_mikrotik1_ipsec_proposal.jpg)
+
+**Profile**
+
+![MK1 profile](Screenshots/16_mikrotik1_ipsec_profile.jpg)
+
+**Peer**
+
+![MK1 peer](Screenshots/17_mikrotik1_ipsec_peer.jpg)
+
+**Identity (PSK)**
+
+![MK1 identity](Screenshots/18_mikrotik1_ipsec_identity.jpg)
+
+**Policy**
+
+![MK1 policy](Screenshots/19_mikrotik1_ipsec_policy.jpg)
+
+#### MikroTik-2
+
+**Profile**
+
+![MK2 profile](Screenshots/20_mikrotik2_ipsec_profile.jpg)
+
+**Peer**
+
+![MK2 peer](Screenshots/21_mikrotik2_ipsec_peer.jpg)
+
+**Identity (PSK)**
+
+![MK2 identity](Screenshots/22_mikrotik2_ipsec_identity.jpg)
+
+**Policy**
+
+![MK2 policy](Screenshots/23_mikrotik2_ipsec_policy.jpg)
 
 Both policies show `PH2 State: established`.
 
@@ -214,9 +258,13 @@ An established tunnel does not create routes. RouterOS matches traffic against I
 /ip route add dst-address=192.168.10.0/24 gateway=10.0.0.1
 ```
 
-| MikroTik-1 routes | MikroTik-2 routes |
-|---|---|
-| ![MK1 routes](Screenshots/24_mikrotik1_routes.jpg) | ![MK2 routes](Screenshots/25_mikrotik2_routes.jpg) |
+**MikroTik-1 — note the static `AS` route to 192.168.20.0/24**
+
+![MK1 routes](Screenshots/24_mikrotik1_routes.jpg)
+
+**MikroTik-2 — mirrored, static `AS` route to 192.168.10.0/24**
+
+![MK2 routes](Screenshots/25_mikrotik2_routes.jpg)
 
 End-to-end, both directions, private addressing throughout:
 
@@ -226,9 +274,9 @@ End-to-end, both directions, private addressing throughout:
 
 RDP now targets the host's real address, with no port forward involved:
 
-| | |
-|---|---|
-| ![RDP to private IP](Screenshots/28_rdp_target_private_ip.jpg) | ![RDP over VPN](Screenshots/29_rdp_session_via_vpn.jpg) |
+![RDP to private IP](Screenshots/28_rdp_target_private_ip.jpg)
+
+![RDP over VPN](Screenshots/29_rdp_session_via_vpn.jpg)
 
 ---
 
@@ -280,9 +328,13 @@ Final `forward` order on MikroTik-2:
 4  accept  connection-nat-state=dstnat
 ```
 
-| MikroTik-1 filter | MikroTik-2 filter |
-|---|---|
-| ![MK1 final](Screenshots/30_mikrotik1_filter_final.jpg) | ![MK2 final](Screenshots/31_mikrotik2_filter_final.jpg) |
+**MikroTik-1 — `input` chain only; no inter-LAN forward rules needed on this side**
+
+![MK1 final](Screenshots/30_mikrotik1_filter_final.jpg)
+
+**MikroTik-2 — full rule set, `forward` and `input`**
+
+![MK2 final](Screenshots/31_mikrotik2_filter_final.jpg)
 
 ### Retiring Approach A
 
